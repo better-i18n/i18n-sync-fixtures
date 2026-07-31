@@ -43,14 +43,41 @@ file-structure option picked when connecting.
 A clean failure is the feature here. The error should name where it looked and
 what it found, and the activity row should carry a diagnosis.
 
+All of these are verified against the real tree of this repository.
+
 | # | Base path | Structure | Source language | Expected failure |
 |---|---|---|---|---|
-| 10 | `namespace-folders` | **locale folders** (deliberately wrong) | `en` | fails. Diagnosis `structure-mismatch`, suggesting `namespace_folders` |
-| 11 | `tooling-only` | single file | `en` | fails. Diagnosis `no-locale-files` — JSON is present but none of it is a locale file |
-| 12 | `empty-dir` | single file | `en` | fails. Diagnosis `no-json-under-path` |
-| 13 | *(repository root)* | single file | `fr` | fails. Diagnosis `source-language-mismatch`, listing `en` and `tr` as the locales that do exist |
-| 14 | `does-not-exist` | single file | `en` | fails. Diagnosis `no-json-under-path`, and the path is absent from the tree |
-| 15 | `zh-hant-alias` | single file | `zh-hans` | fails. Simplified is not Traditional, so the alias must NOT match |
+| 10 | `namespace-folders` | **locale folders** (deliberately wrong) | `en` | Diagnosis `structure-mismatch`, suggesting `namespace_folders`. Reading the tree the wrong way resolves the locale as `faq` |
+| 11 | `tooling-only` | single file | `en` | Diagnosis `wrong-base-path`, pointing at `locales`. See the note below |
+| 12 | `empty-dir` | single file | `en` | Diagnosis `wrong-base-path`, pointing at `locales` |
+| 13 | *(repository root)* | single file | `fr` | Diagnosis `source-language-mismatch`, listing `en` and `tr` as the locales that do exist |
+| 14 | `does-not-exist` | single file | `en` | Diagnosis `wrong-base-path`. The path is absent from the tree |
+| 15 | `zh-hant-alias` | single file | `zh-hans` | Diagnosis `source-language-mismatch`. Simplified is not Traditional, so the alias must NOT match |
+
+### Why 11, 12 and 14 report `wrong-base-path`
+
+Because this repository *does* hold locale files, just not at the path being
+tested. "Your locales are in `locales`" is the more useful answer than "there
+are no locale files here", so the diagnosis prefers it.
+
+That means the `no-locale-files` and `no-json-under-path` causes cannot be
+reproduced on `main` at all — every path here has locale-bearing siblings. Use
+the **`no-locales` branch** for those.
+
+## The `no-locales` branch
+
+A repository with JSON files but no locale files anywhere, which is the
+ta-na-mao case. Connect this branch instead of `main`:
+
+| Base path | Source language | Expected |
+|---|---|---|
+| *(repository root)* | `pt-br` | Diagnosis `no-locale-files` — 4 JSON files present, none of them a locale |
+| `src` | `en` | Diagnosis `no-json-under-path` |
+| `does-not-exist` | `en` | Diagnosis `no-json-under-path` |
+
+Switching branches is also the cheapest way to test the "right path, wrong
+branch" failure: point the base path at `locales` while connecting
+`no-locales`.
 
 ## What this repo cannot test
 
