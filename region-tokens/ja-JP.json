@@ -1,4 +1,5 @@
 {
   "app.title": "フィクスチャ",
-  "app.tagline": "日本語"
+  "app.tagline": "日本語",
+  "webhook.probe": "ja-JP.json に追加"
 }
