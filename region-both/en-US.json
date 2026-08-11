@@ -1,0 +1,4 @@
+{
+  "app.title": "Fixtures",
+  "app.tagline": "Region file, must NOT be picked when en.json exists"
+}

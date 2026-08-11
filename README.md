@@ -37,6 +37,9 @@ file-structure option picked when connecting.
 | 7 | `pt-fallback` | single file | `pt-br` | imports `pt.json` via the base-language fallback |
 | 8 | `nested` | single file | `en` | imports, and the key format is detected as nested (not flat) |
 | 9 | `deep/apps/web/src/i18n/locales` | single file | `en` | imports. A deep monorepo path must work |
+| 16 | `region-tokens` | single file | `en` | imports, matching `en-US.json`. **This is the CapitalLayer case: a bare source code reaching a region file.** `ja` matches `ja-JP.json`, `zh-hant` matches `zh-TW.json` |
+| 17 | `region-both` | single file | `en` | imports `en.json`, **not** `en-US.json`. An exact filename always wins; the region file must never be preferred when the bare one exists |
+| 18 | `region-ambiguous` | single file | `pt-br` | imports `pt-BR.json` exactly. Compare with scenario 19 |
 
 ## Scenarios that MUST fail
 
@@ -53,6 +56,47 @@ All of these are verified against the real tree of this repository.
 | 13 | *(repository root)* | single file | `fr` | Diagnosis `source-language-mismatch`, listing `en` and `tr` as the locales that do exist |
 | 14 | `does-not-exist` | single file | `en` | Diagnosis `wrong-base-path`. The path is absent from the tree |
 | 15 | `zh-hant-alias` | single file | `zh-hans` | Diagnosis `source-language-mismatch`. Simplified is not Traditional, so the alias must NOT match |
+| 19 | `region-ambiguous` | single file | `pt` | Diagnosis `source-language-mismatch`, listing `pt-br` and `pt-pt`. **Failing here is the feature.** A repository shipping both has deliberately separated two products, and picking Brazilian because CLDR ranks it first would choose one of them for the customer |
+
+### Why 16 works but 19 must not
+
+Both are "a bare code, only region files present", and the difference is whether
+the repository itself distinguishes variants of that language.
+
+`en` and `en-US` both maximize to `en-Latn-US` under CLDR likely-subtags, so
+scenario 16 matches with tier `maximized`. This is the direction RFC 4647 Lookup
+deliberately does not cover — it walks specific to general only, never the
+reverse — which is why the naive implementation left CapitalLayer with four
+failed imports and nothing to change.
+
+Maximization is not truncation, and that is what keeps it safe:
+
+- `en-GB` maximizes to `en-Latn-GB`, so it is **not** pulled in for an `en`
+  project. Different content, not a different spelling.
+- `region-both` never reaches the tier at all, because `en.json` matched exactly
+  (scenario 17).
+- `region-ambiguous` refuses, because two files claim the same base language
+  (scenario 19).
+
+### Round-tripping: 16 also tests the publish direction
+
+Import and publish must agree, or a publish lands in a file the import never
+read. Scenario 16 has a token policy the platform infers from the repository
+itself (`language_region`, hyphen, BCP-47 case, confidence `unique` since all
+three files agree), so adding a target language writes:
+
+| Add | Writes | Not |
+|---|---|---|
+| `fr` | `region-tokens/fr-FR.json` | `fr.json` |
+| `de` | `region-tokens/de-DE.json` | `de.json` |
+
+A bare `fr.json` next to `en-US.json` is a file the customer's app never reads.
+
+Worth knowing while testing: the stored language code is not the file token with
+its region removed. `zh-TW` is Traditional Chinese, stored as `zh-hant`, while a
+bare `zh` maximizes to Simplified (`zh-CN`). Anything recovering a language by
+splitting the token on `-` turns this directory's Traditional file into a
+Simplified one silently.
 
 ### Why 11, 12 and 14 report `wrong-base-path`
 
